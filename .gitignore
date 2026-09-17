@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+build/
+dist/
+out/
+
+# Coverage
+coverage/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+out.txt
+
+# Environment & secrets
+.env*
+!.env.example
+
+# Electron packaged output
+release/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Misc personal folders
+NewFolder/
+Pervez/
+.antigravity/

@@ -1,0 +1,87 @@
+/* J.A.R.V.I.S. Companion - Screen Anchor Overlays */
+
+.jarvis-launcher-wrap {
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  z-index: 2147483645 !important; /* Absolute max to top everything */
+  width: 56px !important;
+  height: 56px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.jarvis-orb-button {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 50% !important;
+  border: 2px solid #8b5cf6 !important; /* Injected subtle violet */
+  background: rgba(10, 10, 12, 0.9) !important;
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.4), inset 0 0 10px rgba(139, 92, 246, 0.2) !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  outline: none !important;
+  transition: all 0.3s ease !important;
+  position: relative !important;
+}
+
+.jarvis-orb-button:hover {
+  transform: scale(1.1) rotate(5deg) !important;
+  border-color: #fbbf24 !important; /* Swaps to gold hover ring */
+  box-shadow: 0 0 25px rgba(251, 191, 36, 0.7), inset 0 0 12px rgba(251, 191, 36, 0.3) !important;
+}
+
+.jarvis-orb-icon {
+  width: 24px !important;
+  height: 24px !important;
+  color: #fbbf24 !important; /* Gold */
+  transition: all 0.3s ease !important;
+}
+
+.jarvis-orb-button:hover .jarvis-orb-icon {
+  color: #ffffff !important;
+  filter: drop-shadow(0 0 5px #fbbf24) !important;
+}
+
+.jarvis-sidebar-host {
+  position: fixed !important;
+  top: 0 !important;
+  right: -420px !important; /* Initially offscreen */
+  width: 380px !important;
+  height: 100vh !important;
+  z-index: 2147483646 !important;
+  transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: -10px 0 35px rgba(0, 0, 0, 0.6) !important;
+  background: transparent !important;
+}
+
+.jarvis-sidebar-host.open {
+  right: 0 !important;
+}
+
+/* Pulsing backdrop glow to indicate link */
+.jarvis-orb-pulse {
+  position: absolute !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  border: 1px solid rgba(251, 191, 36, 0.4) !important;
+  animation: jarvis-pulse-anim 2s infinite !important;
+  pointer-events: none !important;
+}
+
+@keyframes jarvis-pulse-anim {
+  0% {
+    transform: scale(1) !important;
+    opacity: 0.8 !important;
+  }
+  100% {
+    transform: scale(1.5) !important;
+    opacity: 0 !important;
+  }
+}

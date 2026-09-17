@@ -1,0 +1,17 @@
+{
+  "name": "JARVIS Interface",
+  "short_name": "JARVIS",
+  "description": "JARVIS Holographic AI Interface",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "https://upload.wikimedia.org/wikipedia/commons/2/23/Light_green_circle.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

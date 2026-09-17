@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "J.A.R.V.I.S. Ambient Companion",
+  "version": "1.0.0",
+  "description": "Always-on conversational HUD overlay that stays active in Chrome tabs with high-fidelity page intelligence.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["config.js", "content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "icons": {
+    "48": "icon.png",
+    "128": "icon.png"
+  },
+  "commands": {
+    "toggle-companion": {
+      "suggested_key": {
+        "default": "Alt+J"
+      },
+      "description": "Toggle J.A.R.V.I.S. Ambient Assistant Sidebar"
+    }
+  }
+}

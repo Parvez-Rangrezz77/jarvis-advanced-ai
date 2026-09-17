@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>J.A.R.V.I.S. Ambient Setup</title>
+  <style>
+    body {
+      width: 320px;
+      margin: 0;
+      padding: 0;
+      background: #09090b;
+      color: #fafafa;
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow-hidden: hidden;
+    }
+
+    .container {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Giga Hologram Title Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 10px;
+    }
+
+    .logo {
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      color: #fbbf24;
+      font-size: 14px;
+      text-shadow: 0 0 8px rgba(255, 191, 36, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status {
+      font-size: 8px;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: #10b981;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 99px;
+      padding: 2px 6px;
+      letter-spacing: 0.08em;
+    }
+
+    /* Instruction/Brief paragraphs */
+    .intro {
+      font-size: 11px;
+      color: #a1a1aa;
+      line-height: 1.5;
+    }
+
+    /* Input controls elements */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+      color: #71717a;
+      letter-spacing: 0.05em;
+    }
+
+    .input-field {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #fbbf24;
+      font-size: 11px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .input-field:focus {
+      border-color: #fbbf24;
+      box-shadow: 0 0 8px rgba(251, 191, 36, 0.15);
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #d4d4d8;
+      cursor: pointer;
+      user-select: none;
+      margin-top: 4px;
+    }
+
+    .checkbox-row input {
+      accent-color: #fbbf24;
+      cursor: pointer;
+    }
+
+    /* Direct Button controls */
+    .save-btn {
+      background: #fbbf24;
+      border: none;
+      border-radius: 8px;
+      color: #09090b;
+      padding: 10px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .save-btn:hover {
+      background: #f59e0b;
+      box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
+      transform: translateY(-0.5px);
+    }
+
+    .feedback-toast {
+      font-size: 10px;
+      color: #60a5fa;
+      font-family: monospace;
+      text-align: center;
+      display: none;
+    }
+
+    /* Hotkey footer help banner */
+    .shortcut-footer {
+      background: rgba(255, 255, 255, 0.02);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 10px 16px;
+      font-size: 10px;
+      color: #71717a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .key-badge {
+      background: #27272a;
+      color: #e4e4e7;
+      border: 1px solid #3f3f46;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: monospace;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <!-- Top HUD row -->
+    <div class="header">
+      <div class="logo">
+        <svg style="width: 14px; height: 14px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" stroke="#fbbf24" />
+        </svg>
+        <span>J.A.R.V.I.S. CONNECT</span>
+      </div>
+      <span class="status">Cortex Linking</span>
+    </div>
+
+    <p class="intro">
+      This extension logs J.A.R.V.I.S. into your Google Chrome browser. Your current context is processed securely.
+    </p>
+
+    <!-- Secrets mapping -->
+    <div class="form-group">
+      <div class="label-row">
+        <span>Gemini Key (API_KEY)</span>
+        <span style="color: #60a5fa; cursor: pointer; text-transform: lowercase;" id="help-key">Get Key</span>
+      </div>
+      <input type="password" class="input-field" placeholder="AI Studio key: AIzaSy..." id="api-key-input">
+    </div>
+
+    <!-- Active features presets -->
+    <div class="form-group">
+      <label class="checkbox-row">
+        <input type="checkbox" id="context-default" checked>
+        <span>Enable tab context reading by default</span>
+      </label>
+    </div>
+
+    <button class="save-btn" id="save-button">Initialize Neural Link</button>
+    <div class="feedback-toast" id="save-feedback">Neural pathways linked successfully.</div>
+
+  </div>
+
+  <div class="shortcut-footer">
+    <span>Launch Ambient Sidebar:</span>
+    <span class="key-badge">Alt + J</span>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
