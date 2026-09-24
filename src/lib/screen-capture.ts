@@ -34,7 +34,7 @@ export class ScreenCapture {
       const captureFrame = () => {
         if (!this.video || !this.canvas || this.video.videoWidth === 0) return;
         // Limit max resolution to avoid exceeding API payload limits
-        const maxDim = 1024;
+        const maxDim = 768;
         let w = this.video.videoWidth;
         let h = this.video.videoHeight;
         
@@ -53,13 +53,13 @@ export class ScreenCapture {
         const ctx = this.canvas.getContext("2d");
         if (ctx) {
           ctx.drawImage(this.video, 0, 0, w, h);
-          const dataUrl = this.canvas.toDataURL("image/jpeg", 0.6);
+          const dataUrl = this.canvas.toDataURL("image/jpeg", 0.4);
           const base64 = dataUrl.split(",")[1];
           if (base64) onFrame(base64);
         }
       };
 
-      this.intervalId = setInterval(captureFrame, 2000); // 0.5 FPS to save tokens/bandwidth
+      this.intervalId = setInterval(captureFrame, 3500); // 0.28 FPS — optimized bandwidth
 
       // Stop handling
       this.stream.getVideoTracks()[0].onended = () => {

@@ -156,19 +156,19 @@ export async function buildMemoryContext(): Promise<string> {
     }
   }
 
-  // Recent conversations (last 10)
+  // Recent conversations (last 25)
   if (mem.conversationHistory.length > 0) {
-    const recent = mem.conversationHistory.slice(-10);
+    const recent = mem.conversationHistory.slice(-25);
     parts.push('\n=== RECENT CONVERSATION HISTORY ===');
     for (const c of recent) {
       parts.push(`• [${new Date(c.timestamp).toLocaleDateString()}] ${c.summary}`);
     }
   }
 
-  // Behavioral learnings (last 20)
+  // Behavioral learnings (last 50)
   const learnings = mem.learnings || [];
   if (learnings.length > 0) {
-    const recentLearnings = learnings.slice(-20);
+    const recentLearnings = learnings.slice(-50);
     parts.push('\n=== BEHAVIORAL LEARNINGS (APPLY ALWAYS) ===');
     for (const l of recentLearnings) {
       parts.push(`• [${l.source}] Context: ${l.context} → Lesson: ${l.lesson}`);

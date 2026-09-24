@@ -138,28 +138,6 @@ CURRENT ENVIRONMENT CONTEXT
               }
             },
             {
-              name: "whatsapp_action",
-              description: "Send or read messages on WhatsApp.",
-              parameters: {
-                type: Type.OBJECT,
-                properties: {
-                  action: {
-                    type: Type.STRING,
-                    description: "The action to perform: 'send' or 'read'"
-                  },
-                  contact: {
-                    type: Type.STRING,
-                    description: "The name of the contact"
-                  },
-                  message: {
-                    type: Type.STRING,
-                    description: "The message text to send (only for 'send')"
-                  }
-                },
-                required: ["action", "contact"]
-              }
-            },
-            {
               name: "search_youtube",
               description: "Search for or play a video/song on YouTube and open it. Use this whenever the user asks to play a song or video.",
               parameters: {
@@ -382,9 +360,10 @@ CURRENT ENVIRONMENT CONTEXT
   }
 
   private async onMessage(message: LiveServerMessage) {
+    // goAway signal — auto-reconnect instead of permanent stop
     if (message.goAway) {
-      console.log('Received goAway signal, stopping session.');
-      this.stop();
+      console.log('[JARVIS Neural Link] Received goAway signal, auto-reconnecting...');
+      this.handleUnexpectedClose();
       return;
     }
 
@@ -418,15 +397,6 @@ CURRENT ENVIRONMENT CONTEXT
             } else {
               this.onCommand?.('open_url', url);
               this.sendToolResponse(call.id!, 'open_url', { status: "opened", url });
-            }
-          } else if (call.name === 'whatsapp_action') {
-            const args = call.args as any;
-            if (this.executeCommandCallback) {
-              const response = await this.executeCommandCallback('whatsapp_action', args);
-              this.sendToolResponse(call.id!, 'whatsapp_action', response);
-            } else {
-              this.onCommand?.('whatsapp_action', args);
-              this.sendToolResponse(call.id!, 'whatsapp_action', { status: "simulated_success", action: args?.action, contact: args?.contact });
             }
           } else if (call.name === 'search_youtube') {
             const query = (call.args as any)?.query;
@@ -554,12 +524,12 @@ CURRENT ENVIRONMENT CONTEXT
       if (topic.length > 10) this.conversationTopics.push(topic);
     }
 
-    // Handle Interruption
+    // Handle Interruption — REUSE AudioContext (Chrome limits to 6 per origin)
     if (message.serverContent?.interrupted) {
       this.nextPlayTime = 0;
-      if (this.audioCtx) {
-        this.audioCtx.close();
-        this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (this.audioCtx && this.audioCtx.state !== 'closed') {
+        // Suspend and resume to flush pending audio, but KEEP the same context
+        this.audioCtx.suspend().then(() => this.audioCtx?.resume()).catch(() => {});
       }
     }
   }
@@ -689,7 +659,7 @@ CURRENT ENVIRONMENT CONTEXT
       const captureFrame = () => {
         if (!video || video.videoWidth === 0 || !this.isConnected) return;
         
-        const maxDim = 1024;
+        const maxDim = 768;
         let w = video.videoWidth;
         let h = video.videoHeight;
         
@@ -708,7 +678,7 @@ CURRENT ENVIRONMENT CONTEXT
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(video, 0, 0, w, h);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.4);
           const base64 = dataUrl.split(',')[1];
           if (base64 && this.isConnected && this.sessionPromise) {
             this.sessionPromise.then((session: any) => {
@@ -718,7 +688,7 @@ CURRENT ENVIRONMENT CONTEXT
         }
       };
 
-      this.electronScreenInterval = setInterval(captureFrame, 2000); // 0.5 FPS
+      this.electronScreenInterval = setInterval(captureFrame, 3500); // 0.28 FPS — lower bandwidth
 
       stream.getVideoTracks()[0].onended = () => {
         this.stopScreenShare();
@@ -746,32 +716,30 @@ CURRENT ENVIRONMENT CONTEXT
 
   private async handleUnexpectedClose() {
     if (this.isManualStop || this.isReconnecting) {
-      this.stop(true);
+      if (this.isManualStop) this.stop(true);
       return;
     }
 
-    if (this.reconnectAttempts < 5) {
-      this.reconnectAttempts++;
-      this.isReconnecting = true;
-      console.log(`[JARVIS Neural Link] Connection lost. Auto-reconnecting attempt ${this.reconnectAttempts}/5...`);
-      this.onStateChange?.('connecting');
-      
-      // Clean up current session resources before reconnecting
-      this.cleanupResources();
+    // Unlimited reconnect with exponential backoff (2s → 4s → 8s → 16s → max 30s)
+    this.reconnectAttempts++;
+    this.isReconnecting = true;
+    const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
+    console.log(`[JARVIS Neural Link] Connection lost. Auto-reconnecting attempt ${this.reconnectAttempts} in ${delay/1000}s...`);
+    this.onStateChange?.('connecting');
+    
+    // Clean up current session resources before reconnecting
+    this.cleanupResources();
 
-      setTimeout(async () => {
-        try {
-          await this.start(this.currentAgentId);
-        } catch (e) {
-          console.error('[JARVIS Neural Link] Auto-reconnect failed:', e);
-          this.isReconnecting = false;
-          this.stop(true);
-        }
-      }, 2000);
-    } else {
-      console.warn('[JARVIS Neural Link] Max reconnect attempts reached.');
-      this.stop(true);
-    }
+    setTimeout(async () => {
+      try {
+        this.isReconnecting = false;
+        await this.start(this.currentAgentId);
+      } catch (e) {
+        console.error('[JARVIS Neural Link] Auto-reconnect failed:', e);
+        this.isReconnecting = false;
+        // Keep trying — will trigger handleUnexpectedClose again via onerror/onclose
+      }
+    }, delay);
   }
 
   private cleanupResources() {
