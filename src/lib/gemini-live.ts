@@ -191,17 +191,21 @@ CURRENT ENVIRONMENT CONTEXT
             },
             {
               name: "type_text",
-              description: "Type text into the currently active window or open application (like Notepad, Word, Browser, Chat, search bar, etc.). Use whenever user asks to 'type', 'write text', 'note down', or type anything on screen.",
+              description: "Type or write text into ANY active window or target application on the user's PC (Notepad, Word, Chrome, Browser, VS Code, Discord, WhatsApp, Search bar, terminal, etc.). Supports Unicode, Hindi, code, emojis, and multiline text. If user says 'Notepad mein likho' or 'Chrome mein likho', pass targetApp. If no targetApp is specified, it types/pastes directly into whatever window or field is currently active.",
               parameters: {
                 type: Type.OBJECT,
                 properties: {
                   text: {
                     type: Type.STRING,
-                    description: "The text string to type out"
+                    description: "The text string to type out or write"
                   },
                   targetApp: {
                     type: Type.STRING,
-                    description: "Optional application name to focus before typing (e.g. 'Notepad', 'Chrome', 'Word')"
+                    description: "Optional application name to focus before typing (e.g. 'Notepad', 'Chrome', 'Word', 'VS Code', 'Browser', 'Discord', 'Terminal')"
+                  },
+                  pressEnter: {
+                    type: Type.BOOLEAN,
+                    description: "Whether to press Enter key immediately after typing the text (default: false)"
                   }
                 },
                 required: ["text"]

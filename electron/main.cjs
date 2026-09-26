@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, globalShortcut, desktopCapturer, shell, scr
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const https = require('https');
 const http = require('http');
 const memory = require('./memory.cjs');
@@ -269,30 +269,143 @@ ipcMain.handle('execute-system-command', async (event, command) => {
   });
 });
 
-// Dedicated Type Text Handler (Native typing via WScript.Shell)
+// Dedicated Type Text Handler (High-Performance Native Typing & Unicode Clipboard Injection)
 ipcMain.handle('type-text', async (event, payload) => {
   const text = typeof payload === 'string' ? payload : (payload?.text || '');
   const targetApp = typeof payload === 'object' ? payload?.targetApp : undefined;
+  const pressEnter = typeof payload === 'object' ? Boolean(payload?.pressEnter) : false;
 
-  let ps = '';
-  if (targetApp) {
-    ps += `(New-Object -ComObject WScript.Shell).AppActivate('${targetApp.replace(/'/g, "''")}'); Start-Sleep -Milliseconds 300; `;
+  if (!text) {
+    return { success: false, error: 'No text provided to type' };
   }
 
-  // Escape SendKeys special characters safely
-  const safeText = text.replace(/'/g, "''").replace(/([{}~%^+()\[\]])/g, '{$1}');
-  ps += `(New-Object -ComObject WScript.Shell).SendKeys('${safeText}')`;
+  // If no target app specified and JARVIS window is currently focused,
+  // blur it briefly so the keystrokes go to the user's previously active application!
+  if (!targetApp && mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused()) {
+    try {
+      mainWindow.blur();
+    } catch (_) {}
+  }
 
   return new Promise((resolve) => {
-    exec(ps, { shell: 'powershell.exe' }, (error) => {
-      if (error) {
-        resolve({ success: false, error: error.message });
-      } else {
+    const rawTarget = (targetApp || '').replace(/'/g, "''").trim();
+    const enterScript = pressEnter ? "\nStart-Sleep -Milliseconds 100\n$wshell.SendKeys('{ENTER}')" : "";
+
+    const script = `
+$ErrorActionPreference = 'SilentlyContinue'
+$rawTarget = '${rawTarget}'
+$wshell = New-Object -ComObject WScript.Shell
+
+$aliases = @{
+    'chrome' = 'Google Chrome'
+    'google chrome' = 'Google Chrome'
+    'browser' = 'Google Chrome'
+    'edge' = 'Microsoft Edge'
+    'msedge' = 'Microsoft Edge'
+    'vscode' = 'Visual Studio Code'
+    'code' = 'Visual Studio Code'
+    'vs code' = 'Visual Studio Code'
+    'notepad' = 'Notepad'
+    'word' = 'Word'
+    'excel' = 'Excel'
+    'whatsapp' = 'WhatsApp'
+    'telegram' = 'Telegram'
+    'discord' = 'Discord'
+    'spotify' = 'Spotify'
+    'terminal' = 'Windows PowerShell'
+    'cmd' = 'Command Prompt'
+    'powershell' = 'Windows PowerShell'
+}
+
+$launchMap = @{
+    'chrome' = 'chrome'
+    'google chrome' = 'chrome'
+    'browser' = 'chrome'
+    'edge' = 'msedge'
+    'vscode' = 'code'
+    'code' = 'code'
+    'vs code' = 'code'
+    'notepad' = 'notepad'
+    'word' = 'winword'
+    'excel' = 'excel'
+    'whatsapp' = 'whatsapp:'
+    'terminal' = 'wt'
+    'cmd' = 'cmd'
+    'powershell' = 'powershell'
+}
+
+if ($rawTarget -ne '') {
+    $searchKey = $rawTarget.ToLower()
+    $searchName = if ($aliases.ContainsKey($searchKey)) { $aliases[$searchKey] } else { $rawTarget }
+    
+    # 1. Search running processes by MainWindowTitle or ProcessName
+    $proc = Get-Process | Where-Object { 
+        $_.MainWindowTitle -and ($_.MainWindowTitle -like "*$searchName*" -or $_.ProcessName -like "*$rawTarget*") 
+    } | Select-Object -First 1
+
+    if ($proc) {
+        $wshell.AppActivate($proc.Id)
+        Start-Sleep -Milliseconds 300
+    } else {
+        # 2. Try direct AppActivate by window title
+        $activated = $wshell.AppActivate($searchName)
+        if (-not $activated) {
+            $activated = $wshell.AppActivate($rawTarget)
+        }
+        
+        # 3. If not running, attempt auto-launch
+        if (-not $activated) {
+            $launchCmd = if ($launchMap.ContainsKey($searchKey)) { $launchMap[$searchKey] } else { $rawTarget }
+            try {
+                Start-Process $launchCmd
+                Start-Sleep -Milliseconds 800
+                $proc = Get-Process | Where-Object { 
+                    $_.MainWindowTitle -and ($_.MainWindowTitle -like "*$searchName*" -or $_.ProcessName -like "*$rawTarget*") 
+                } | Select-Object -First 1
+                if ($proc) {
+                    $wshell.AppActivate($proc.Id)
+                } else {
+                    $wshell.AppActivate($searchName)
+                }
+                Start-Sleep -Milliseconds 300
+            } catch {
+                $wshell.AppActivate($searchName)
+                Start-Sleep -Milliseconds 300
+            }
+        } else {
+            Start-Sleep -Milliseconds 300
+        }
+    }
+}
+
+# Copy text to clipboard (Supports full Unicode, emoji, multilingual Hindi/English, code)
+Set-Clipboard -Value @'
+${text.replace(/'@/g, "' @")}
+'@
+
+# Paste via Ctrl+V into active text field/window
+Start-Sleep -Milliseconds 150
+$wshell.SendKeys('^v')${enterScript}
+`;
+
+    const encoded = Buffer.from(script, 'utf16le').toString('base64');
+    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded]);
+
+    let stderr = '';
+    child.stderr.on('data', (d) => { stderr += d.toString(); });
+    child.on('exit', (code) => {
+      if (code === 0) {
         resolve({ success: true });
+      } else {
+        resolve({ success: false, error: stderr || `Exited with code ${code}` });
       }
+    });
+    child.on('error', (err) => {
+      resolve({ success: false, error: err.message });
     });
   });
 });
+
 
 // Automated WhatsApp Dispatcher (Direct phone URL or automated contact search + type + send)
 ipcMain.handle('send-whatsapp', async (event, payload) => {

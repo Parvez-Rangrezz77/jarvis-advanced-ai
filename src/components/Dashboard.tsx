@@ -331,9 +331,10 @@ export const Dashboard: React.FC = () => {
       } else if (cmd === 'type_text') {
         const text = typeof arg === 'string' ? arg : (arg?.text || '');
         const targetApp = typeof arg === 'object' ? arg?.targetApp : undefined;
+        const pressEnter = typeof arg === 'object' ? Boolean(arg?.pressEnter) : false;
         setSystemAction(`TYPING: "${text.substring(0, 25)}..."`);
         audioEngine.playTaskSound();
-        const res = await api.typeText({ text, targetApp });
+        const res = await api.typeText({ text, targetApp, pressEnter });
         setTimeout(() => setSystemAction(null), 4000);
         return res.success ? { status: "typed", text } : { status: "failed", error: res.error };
       } else if (cmd === 'take_screenshot') {
