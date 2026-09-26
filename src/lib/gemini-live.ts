@@ -22,6 +22,8 @@ export class JarvisLiveSession {
   private currentAgentId = "jarvis-core";
   private reconnectAttempts = 0;
   private isReconnecting = false;
+  private silenceTimer: any = null;
+  private silenceCheckInCount = 0;
 
   public onTranscript?: (role: 'user' | 'model', text: string) => void;
   public onStateChange?: (state: 'connecting' | 'connected' | 'disconnected' | 'speaking') => void;
@@ -334,6 +336,19 @@ CURRENT ENVIRONMENT CONTEXT
       this.processor.onaudioprocess = async (e) => {
         if (!this.isConnected || !this.sessionPromise) return;
         const float32Array = e.inputBuffer.getChannelData(0);
+        
+        // Voice Activity Detection: reset silence timer when user is speaking
+        let energySum = 0;
+        for (let i = 0; i < float32Array.length; i++) {
+          energySum += float32Array[i] * float32Array[i];
+        }
+        const rms = Math.sqrt(energySum / float32Array.length);
+        if (rms > 0.02) {
+          // User is actively speaking
+          this.silenceCheckInCount = 0;
+          this.resetSilenceTimer();
+        }
+
         const int16Array = new Int16Array(float32Array.length);
         for (let i = 0; i < float32Array.length; i++) {
           let s = Math.max(-1, Math.min(1, float32Array[i]));
@@ -352,11 +367,39 @@ CURRENT ENVIRONMENT CONTEXT
       };
 
       this.source.connect(this.processor);
-      this.processor.connect(audioCtxInput.destination); // connect to destination to make it trigger
+      this.processor.connect(audioCtxInput.destination);
+      this.silenceCheckInCount = 0;
+      this.resetSilenceTimer();
     } catch (e) {
       console.error("Microphone error:", e);
       this.stop();
     }
+  }
+
+  private resetSilenceTimer() {
+    if (this.silenceTimer) clearTimeout(this.silenceTimer);
+    this.silenceTimer = setTimeout(async () => {
+      if (!this.isConnected || !this.sessionPromise) return;
+      this.silenceCheckInCount++;
+      // Only check in up to 3 times, then stay quiet
+      if (this.silenceCheckInCount > 3) return;
+      try {
+        const session = await this.sessionPromise;
+        const prompts = [
+          "The user has been silent for 1 minute. Speak up proactively as J.A.R.V.I.S. (Tony Stark's British AI butler). Give a brief, crisp 1-sentence check-in, addressing the user as 'sir'. For example: 'Still here, sir. Standing by whenever you need me.' or 'Everything in order, sir? Ready when you are.'",
+          "The user remains quiet. As J.A.R.V.I.S., offer assistance or make a witty brief remark in 1 sentence. Address as 'sir'.",
+          "Sir hasn't spoken in a while. As J.A.R.V.I.S., say a very short, polite final check-in for now. Address as 'sir'."
+        ];
+        const prompt = prompts[Math.min(this.silenceCheckInCount - 1, prompts.length - 1)];
+        session.sendClientContent({
+          turns: [{ role: "user", parts: [{ text: prompt }] }],
+          turnComplete: true
+        });
+        this.resetSilenceTimer();
+      } catch (e) {
+        console.warn('[JARVIS] Silence check-in failed:', e);
+      }
+    }, 60000); // 60 seconds
   }
 
   private async onMessage(message: LiveServerMessage) {
@@ -371,6 +414,10 @@ CURRENT ENVIRONMENT CONTEXT
       const calls = message.toolCall.functionCalls;
       if (calls) {
         for (const call of calls) {
+          // Reset silence timer on any tool activity
+          this.silenceCheckInCount = 0;
+          this.resetSilenceTimer();
+          try {
           if (call.name === 'open_application') {
             const appName = (call.args as any)?.appName;
             if (this.executeCommandCallback) {
@@ -499,6 +546,17 @@ CURRENT ENVIRONMENT CONTEXT
             } else {
               this.sendToolResponse(call.id!, 'scrape_webpage', { success: false, error: "Web scraping requires Electron environment." });
             }
+          } else {
+            // Unknown tool fallback — send error response instead of silently ignoring
+            console.warn(`[JARVIS] Unknown tool called: ${call.name}`);
+            this.sendToolResponse(call.id!, call.name!, { status: "error", error: `Unknown tool: ${call.name}. Available tools: open_application, control_system, open_url, search_youtube, remember_this, save_user_info, type_text, take_screenshot, learn_from_interaction, run_system_command, web_search, scrape_webpage, whatsapp_send_message` });
+          }
+          } catch (toolError) {
+            // Safety catch — never let a tool handler crash the session
+            console.error(`[JARVIS] Tool execution error for ${call.name}:`, toolError);
+            try {
+              this.sendToolResponse(call.id!, call.name!, { status: "error", error: `Tool execution failed: ${String(toolError)}. Try an alternative approach.` });
+            } catch (_) {}
           }
         }
       }
@@ -515,6 +573,7 @@ CURRENT ENVIRONMENT CONTEXT
 
     if (message.serverContent?.turnComplete) {
        this.onStateChange?.('connected');
+       this.resetSilenceTimer();
     }
 
     // Track conversation topics for auto-summarize
@@ -773,6 +832,7 @@ CURRENT ENVIRONMENT CONTEXT
     this.isConnected = false;
     this.screenCapture.stop();
     audioEngine.stopKeepAlive();
+    if (this.silenceTimer) { clearTimeout(this.silenceTimer); this.silenceTimer = null; }
     this.onStateChange?.('disconnected');
 
     // Auto-summarize conversation on disconnect
